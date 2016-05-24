@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>miniCHAT</title>
+    <link rel="stylesheet" type="text/css" href="css/main.css" media="screen">
+    <script src="js/chatlib.js"></script>
+    <script src="js/misclib.js"></script>
+</head>
+<body>
+    <header>
+        <span id="status" style="display: none;"></span>
+        <form action="/" method="POST" id="auth">
+            <input type="text" placeholder="username" name="username">
+            <input type="password" placeholder="password" name="password">
+            <button id="signin">Sign in</button>
+            or
+            <button id="signup">Sign up</button>
+        </form>
+    </header>
+    <div role="main"></div>
+    <aside id="participants"></aside>
+    <footer><input type="text"></footer>
+
+    <script>
+        var authForm = document.getElementById('auth'),
+            signinBtn = document.getElementById('signin'),
+            signupBtn = document.getElementById('signup'),
+            notificator = document.getElementById('status'),
+            chat_area = document.querySelector('div[role=main]'),
+            input_area = document.querySelector('footer>input'),
+            chat_list = document.querySelector('aside');
+
+        function showForm () {
+            authForm.style.display = 'inline-block';
+        }
+
+        function hideForm () {
+            authForm.style.display = 'none';
+        }
+
+        function showStatus (text, cls='success') {
+            notificator.style.display = 'inline-block';
+            notificator.className = cls;
+            notificator.innerText = text;
+        }
+
+        function hideStatus () {
+            notificator.style.display = 'none';
+        }
+
+        function printLine (from, data, to, cls='') {
+            to = to ? ' &gt; ' + to : ''
+            chat_area.innerHTML += `<div class="msg ${cls}"><span class="from">${from}${to} </span>${data}</div>`;
+        }
+
+        function onPeerLogin (name) {
+            chat_list.innerHTML += `<div id="_p_${name}">${name}</div>`;
+        }
+
+        function onPeerLogout (name) {
+            chat_list.removeChild(document.getElementById(`_p_${name}`));
+        }
+
+
+        function startAuth () {
+            showForm();
+
+            return Promise.race([
+                MISC_LIB.btnClickPromise(signinBtn, 'signin'),
+                MISC_LIB.btnClickPromise(signupBtn, 'signup')
+            ]).then(action => {
+                var fd = new FormData(authForm),
+                    data = {};
+
+                for (let en of fd.entries()) {
+                    data[en[0]] = en[1];                
+                }
+
+                return CHAT_LIB.auth('/' + action, data);
+            }).then(o => {
+                CHAT_LIB.saveSession(o.token);
+                return o;            
+            }).catch(err => {
+                 console.log(err)
+                 showStatus(err, 'error');
+                 return startAuth();     
+            });
+        }
+
+        function typeHandler(ws, event) {
+            var raw;
+
+            if (event.keyCode === 13) {
+                raw = event.target.value.split('>').slice(0, 2);
+                let message = raw.pop();
+                let to = raw.pop();
+
+                printLine('me', message, to);
+                ws.send('message', message, to ? {to: to} : null);
+                event.target.value = '';
+            }
+        }
+
+        function startChat (token) {
+            return new Promise(function (resolve, reject) {
+                var ws = new CHAT_LIB.ChatStream(window.location.host, token),
+                    th = typeHandler.bind(null, ws);
+
+                ws.onmessage = function ({type, from, content, unicast}) {
+                    switch (type) {
+                        case 'message':
+                            printLine(from, content, unicast && 'me');
+                        break;
+
+                        case 'login':
+                            onPeerLogin(from);
+                            printLine(from, 'joined the chat', '', 'alert');
+                        break;
+
+                        case 'logout':
+                            onPeerLogout(from);
+                            printLine(from, 'left the chat', '', 'alert');
+                        break;
+                        
+                        case 'participants':
+                            chat_list.innerHTML = content.map(
+                                name => `<div id="_p_${name}">${name}</div>`
+                            ).join('');
+                        break;
+
+                    }            
+                };
+
+                ws.onerror = (err) => {
+                    console.log(err);
+                    input_area.removeEventListener('keyup', th);
+                    reject(err);
+                };
+
+                ws.onclose = () => {
+                    reject('hangup');
+                }
+
+                ws.connect();
+
+                input_area.addEventListener('keyup', th);
+            }); 
+        }
+
+        chat_list.addEventListener('click', function (event) {
+            var t = event.target;
+
+            if (t.tagName === 'DIV') {
+                input_area.value = t.innerText + '>' ;
+            }
+        });
+
+        function mainFlow () {
+            hideStatus();
+
+            return CHAT_LIB.restoreSession().catch(function (reason) {
+                console.log(reason);
+                if (reason !== 'token not found') {
+                    CHAT_LIB.clearSession();
+                }
+    
+                return startAuth();
+            }).then(o => {
+                hideForm();
+                showStatus(`Hi ${o.username}!!!`);
+
+                return o.token;
+            }).then(
+                startChat
+            ).catch(() => {
+                CHAT_LIB.clearSession();
+                return mainFlow();
+            });
+        }
+
+        mainFlow();
+    </script>
+
+</body>
+</html>

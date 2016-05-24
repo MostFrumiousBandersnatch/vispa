@@ -1,0 +1,118 @@
+html, body {
+    margin: 0px;
+    overflow: hidden;
+}
+
+header {
+    height: 40px;
+    vertical-align: middle;
+    text-align: right;
+    border-bottom: 1px solid grey;
+}
+
+header::after {
+    content: '';
+    display: inline-block;
+    height: 100%;
+    vertical-align: middle;
+}
+
+header>form {
+    display: inline-block;
+}
+
+div[role=main] {
+    position: absolute;
+    top: 40px;
+    bottom: 28px;
+    left: 0px;
+    right: 200px;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+aside {
+    position: absolute;
+    top: 40px;
+    bottom: 20px;
+    right: 0px;
+    width: 200px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    border-left: 1px solid grey;
+}
+
+aside>div {
+    font-weight: bold;
+    padding: 3px;
+    cursor: pointer;
+}
+
+
+footer {
+    position: absolute;
+    bottom: 0px;
+    left: 0px;
+    right: 0px;
+    height: 28px;
+    background-color: pink;
+}
+
+footer>input {
+    display: block;
+    width: 100%;
+    height: 28px;
+    font-size: 1.5em;
+}
+
+
+@media screen and (max-device-width: 640px) {
+    form#auth {
+        display: block;
+        position: absolute;
+        top: 0px;
+        bottom: 0px;
+        left: 0px;
+        right: 0px;
+        z-index: 10;
+        text-align: left;
+        padding: 10px;
+        background-color: lightgrey;
+    }
+
+    form#auth>input, form#auth>button {
+        display: block;
+    }
+}
+
+input, button {
+    height: 20px;
+    font-size: 0.8em;
+    padding 5px 3px;
+    border: 1px solid grey;
+    box-sizing: content-box;
+}
+
+
+div.msg {
+    word-wrap: break-word;
+    margin-bottom:3px;
+}
+
+div.msg.alert {
+    font-style: italic;
+}
+
+span.from {
+    font-style: normal;
+    font-weight: bold;
+    margin-right: 2px;
+}
+
+span.from::after {
+    content: '>';
+}
+
+.error {
+    color: red;
+}
