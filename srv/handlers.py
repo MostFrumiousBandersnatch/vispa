@@ -71,9 +71,21 @@ def extract_credentials(req):
 
 
 class SignUpHandler(JSONHandler, RedisAwareHandler):
+    def initialize(self, redis_conn):
+        super(SignUpHandler, self).initialize(redis_conn)
+
+        self.signup_lock = redis_conn.lock("signup_lock", lock_ttl=10, polling_interval=0.1)
+        
     @tornado.gen.coroutine
     def post(self):
         username, password = extract_credentials(self.json_request)
+
+        while True:
+            got_it = yield tornado.gen.Task(self.signup_lock.acquire, blocking=True)
+            if got_it:
+                break
+            else:
+                yield gen.sleep(10)
 
         inserted = yield tornado.gen.Task(
             self.redis_conn.setnx,
@@ -83,6 +95,8 @@ class SignUpHandler(JSONHandler, RedisAwareHandler):
 
         if inserted == 0:
             raise tornado.web.HTTPError(409, 'Such a username already exists')
+
+        yield gen.Task(self.signup_lock.release)
 
         self.reply({
             'status': 'ok',
